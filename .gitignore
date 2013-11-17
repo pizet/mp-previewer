@@ -1,0 +1,9 @@
+# C++
+*.o
+
+# Qt
+moc_*
+qrc_*
+
+# Python
+__pycache__
