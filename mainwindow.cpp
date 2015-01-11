@@ -5,10 +5,12 @@ MainWindow::MainWindow()
   metaView = NULL;
   createTimer();
   createActions();
-  createMenus();
   createToolBar();
   createErrorTabs();
+  createStatusBar();
   scaleFactor = 1.0;
+  setWindowFlags(Qt::WindowStaysOnTopHint);
+  loadSettings();
 }
 
 void MainWindow::createTimer()
@@ -16,6 +18,11 @@ void MainWindow::createTimer()
   timer = new QTimer(this);
   connect(timer, SIGNAL(timeout()), this, SLOT(update()));
   timer->start(1000);
+}
+
+void MainWindow::createStatusBar()
+{
+  statusBar()->showMessage(tr("MetaView"));
 }
 
 void MainWindow::createActions()
@@ -34,12 +41,33 @@ void MainWindow::createActions()
   connect(zoomOutAct, SIGNAL(triggered()), this, SLOT(zoomOut()));
   
   showErrorAct = new QAction(QIcon(":/images/error.png"), tr("Show Error"), this);
-  showErrorAct->setStatusTip(tr("Zoom out"));
+  showErrorAct->setStatusTip(tr("Show Error"));
+  showErrorAct->setCheckable(true);
+  showErrorAct->setChecked(false);
+  connect(showErrorAct, SIGNAL(toggled(bool)), this, SLOT(showError(bool)));
   
   closeAct = new QAction(tr("E&xit"), this);
   closeAct->setShortcuts(QKeySequence::Quit);
   closeAct->setStatusTip(tr("Exit the application"));
   connect(closeAct, SIGNAL(triggered()), this, SLOT(close()));
+  
+  onTopAct = new QAction(tr("On Top"), this);
+  onTopAct->setCheckable(true);
+  onTopAct->setChecked(true);
+  connect(onTopAct, SIGNAL(toggled(bool)), this, SLOT(putOnTop(bool)));
+}
+
+void MainWindow::putOnTop(bool onTop)
+{
+  if (onTop)
+  {
+    setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint);
+  }
+  else
+  {
+    setWindowFlags(windowFlags() & ~Qt::WindowStaysOnTopHint);
+  }
+  this->show();
 }
 
 void MainWindow::createMenus()
@@ -55,14 +83,17 @@ void MainWindow::createMenus()
 void MainWindow::createToolBar()
 {
   epsFiles = new QComboBox(this);
+  epsFiles->setMinimumContentsLength(17);
+  epsFiles->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
   connect(epsFiles, SIGNAL(activated(const QString&)), this, SLOT(change(const QString&)));
 
   toolBar = addToolBar("Main");
   toolBar->addAction(newFolderAct);
-  toolBar->addWidget(epsFiles);
   toolBar->addAction(zoomInAct);
   toolBar->addAction(zoomOutAct);
   toolBar->addAction(showErrorAct);
+  toolBar->addAction(onTopAct);
+  toolBar->addWidget(epsFiles);
 }
 
 void MainWindow::createErrorTabs()
@@ -79,14 +110,22 @@ void MainWindow::createErrorTabs()
   errorTabs->addTab(errorTabMpx, tr("mpx"));
 
   errorWindow->setWidget(errorTabs);
-  addDockWidget(Qt::RightDockWidgetArea, errorWindow);
-  connect(showErrorAct, SIGNAL(toggled(bool)), errorWindow, SLOT(setVisible(bool)));
+  addDockWidget(Qt::BottomDockWidgetArea, errorWindow);
+  errorWindow->setVisible(false);
+}
+
+void MainWindow::showError(bool notVisible)
+{
+  if (notVisible)
+    errorWindow->setVisible(true);
+  else
+    errorWindow->setVisible(false);
 }
 
 void MainWindow::change(const QString& fileName)
 {
   if (fileName.size() > 0) {
-    QString epsFileName = fileName;
+    QString epsFileName = workingDirPath + "/" + fileName;
     
     QStringList arguments;
     arguments.append(epsFileName);
@@ -113,6 +152,7 @@ void MainWindow::change(const QString& fileName)
 
     if (fileName != activeEpsFile) {
       activeEpsFile = fileName;
+      setWindowTitle(activeEpsFile);
       scaleFactor = 1.0;
     }
   }
@@ -123,8 +163,11 @@ void MainWindow::open()
   workingDirPath = QFileDialog::getExistingDirectory(
       this, tr("Choose Directory"), "/home",
       QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-  
+ 
   QDir(workingDirPath).mkdir(".metaview");
+  QFile(QCoreApplication::applicationDirPath() + "/standalone.cls").copy(workingDirPath + "/.metaview/standalone.cls");
+  QFile(QCoreApplication::applicationDirPath() + "/standalone.sty").copy(workingDirPath + "/.metaview/standalone.sty");
+  QFile(QCoreApplication::applicationDirPath() + "/standalone.cfg").copy(workingDirPath + "/.metaview/standalone.cfg");
 
   getEpsFiles();
   getMpFiles();
@@ -132,6 +175,7 @@ void MainWindow::open()
 
 void MainWindow::update()
 {
+  statusBar()->showMessage(tr("Scanning..."));
   bool somethingWasCompiled = false;
   bool anErrorOccured = false;
   for (int i = 0; i < mpFiles.size(); i++) {
@@ -143,11 +187,13 @@ void MainWindow::update()
       QList<QString> arguments;
       arguments.append(mpFiles[i]);
       
+      statusBar()->showMessage(tr("COMPILING..."));
       QProcess *process = new QProcess(this);
       process->start(QCoreApplication::applicationDirPath() + "/mpeps.py", arguments);
       process->waitForFinished();
 
       if (process->exitCode() != 0) {
+        statusBar()->showMessage(tr("ERROR OCCURED!"));
         anErrorOccured = true;
         QString fileName = mpFiles[i];
         fileName.remove(fileName.size() - 3, 3);
@@ -157,12 +203,17 @@ void MainWindow::update()
         errorTabLog->displayFile(logFile);
         errorTabMp->displayFile(mpFile);
         errorTabMpx->displayFile(mpxFile);
+        showErrorAct->setChecked(true);
       }
       modTimes[i] = currentTime;
     }
   }
  
   if (somethingWasCompiled && !anErrorOccured) {
+    statusBar()->showMessage(tr("SUCCESS!"));
+    errorTabLog->clear();
+    errorTabMp->clear();
+    errorTabMpx->clear();
     getEpsFiles();
     getMpFiles();
     change(activeEpsFile);
@@ -208,8 +259,16 @@ void MainWindow::getEpsFiles()
 {
   epsFiles->clear();
   listOfEpsFiles = getExtFiles(workingDirPath, "*.eps");
+  int maximumContentsLength = 0;
+  QString comboBoxItem;
+
   for (int i = 0; i < listOfEpsFiles.size(); i++)
-    epsFiles->addItem(listOfEpsFiles[i]);
+  {
+    comboBoxItem = listOfEpsFiles[i].remove(0, workingDirPath.size() + 1);
+    epsFiles->addItem(comboBoxItem);
+    if (comboBoxItem.size() > maximumContentsLength)
+      maximumContentsLength = comboBoxItem.size();
+  }
 }
 
 void MainWindow::getMpFiles()
@@ -220,4 +279,46 @@ void MainWindow::getMpFiles()
     QFileInfo info(mpFiles[i]);
     modTimes.append(info.lastModified());
   }
+}
+
+void MainWindow::saveSettings()
+{
+  QSettings settings("MV", "MetaView");
+  settings.beginGroup("MainWindow");
+
+  // save geometry
+  settings.setValue("position", this->geometry());
+
+  // save project
+  settings.setValue("path", workingDirPath);
+
+  settings.endGroup();
+}
+
+void MainWindow::loadSettings()
+{
+  QSettings settings("MV", "MetaView");
+  settings.beginGroup("MainWindow");
+
+  // load geometry
+  QRect myrect = settings.value("position").toRect();
+  setGeometry(myrect);
+ 
+  // load project
+  workingDirPath = settings.value("path").toStringList().at(0);
+  QDir(workingDirPath).mkdir(".metaview");
+  QFile(QCoreApplication::applicationDirPath() + "/standalone.cls").copy(workingDirPath + "/.metaview/standalone.cls");
+  QFile(QCoreApplication::applicationDirPath() + "/standalone.sty").copy(workingDirPath + "/.metaview/standalone.sty");
+  QFile(QCoreApplication::applicationDirPath() + "/standalone.cfg").copy(workingDirPath + "/.metaview/standalone.cfg");
+
+  getEpsFiles();
+  getMpFiles();
+
+  settings.endGroup();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+  saveSettings();
+  event->accept();
 }

@@ -14,6 +14,7 @@ public:
     
     ErrorTab(QWidget *parent = 0);
     void displayFile(QFile&);
+    void clear();
 
 private:
 

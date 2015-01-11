@@ -19,3 +19,8 @@ void ErrorTab::displayFile(QFile& file)
     textEdit->setPlainText(text);
   }
 }
+
+void ErrorTab::clear()
+{
+  textEdit->clear();
+}

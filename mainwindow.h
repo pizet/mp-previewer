@@ -1,8 +1,10 @@
 #include <QAction>
+#include <QCloseEvent>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QDebug>
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
@@ -15,6 +17,8 @@
 #include <QMap>
 #include <QProcess>
 #include <QPushButton>
+#include <QSettings>
+#include <QStatusBar>
 #include <QString>
 #include <QTabWidget>
 #include <QToolBar>
@@ -38,6 +42,8 @@ public slots:
   void update();
   void zoomIn();
   void zoomOut();
+  void putOnTop(bool);
+  void showError(bool);
 
 private:
   void createActions();
@@ -45,9 +51,13 @@ private:
   void createMenus();
   void createTimer();
   void createToolBar();
+  void createStatusBar();
   void getEpsFiles();
   QList<QString> getExtFiles(QString, QString);
   void getMpFiles();
+  void saveSettings();
+  void loadSettings();
+  void closeEvent(QCloseEvent *event);
 
   MetaView *metaView;
   ErrorTab *errorTabLog;
@@ -70,4 +80,5 @@ private:
   QAction *zoomOutAct;
   QAction *showErrorAct;
   QAction *closeAct;
+  QAction *onTopAct;
 };
