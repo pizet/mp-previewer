@@ -83,7 +83,7 @@ void MainWindow::createMenus()
 void MainWindow::createToolBar()
 {
   epsFiles = new QComboBox(this);
-  epsFiles->setMinimumContentsLength(17);
+  epsFiles->setMinimumContentsLength(34);
   epsFiles->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
   connect(epsFiles, SIGNAL(activated(const QString&)), this, SLOT(change(const QString&)));
 
