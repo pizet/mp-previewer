@@ -305,14 +305,18 @@ void MainWindow::loadSettings()
   setGeometry(myrect);
  
   // load project
-  workingDirPath = settings.value("path").toStringList().at(0);
-  QDir(workingDirPath).mkdir(".metaview");
-  QFile(QCoreApplication::applicationDirPath() + "/standalone.cls").copy(workingDirPath + "/.metaview/standalone.cls");
-  QFile(QCoreApplication::applicationDirPath() + "/standalone.sty").copy(workingDirPath + "/.metaview/standalone.sty");
-  QFile(QCoreApplication::applicationDirPath() + "/standalone.cfg").copy(workingDirPath + "/.metaview/standalone.cfg");
+  QStringList path = settings.value("path").toStringList();
+  if (path.size() > 0)
+  {
+    workingDirPath = path.at(0);
+    QDir(workingDirPath).mkdir(".metaview");
+    QFile(QCoreApplication::applicationDirPath() + "/standalone.cls").copy(workingDirPath + "/.metaview/standalone.cls");
+    QFile(QCoreApplication::applicationDirPath() + "/standalone.sty").copy(workingDirPath + "/.metaview/standalone.sty");
+    QFile(QCoreApplication::applicationDirPath() + "/standalone.cfg").copy(workingDirPath + "/.metaview/standalone.cfg");
 
-  getEpsFiles();
-  getMpFiles();
+    getEpsFiles();
+    getMpFiles();
+  }
 
   settings.endGroup();
 }
