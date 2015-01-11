@@ -286,8 +286,9 @@ void MainWindow::saveSettings()
   QSettings settings("MV", "MetaView");
   settings.beginGroup("MainWindow");
 
-  // save geometry
-  settings.setValue("position", this->geometry());
+  // save position and size
+  settings.setValue("position", this->pos());
+  settings.setValue("size", this->size());
 
   // save project
   settings.setValue("path", workingDirPath);
@@ -301,8 +302,11 @@ void MainWindow::loadSettings()
   settings.beginGroup("MainWindow");
 
   // load geometry
-  QRect myrect = settings.value("position").toRect();
-  setGeometry(myrect);
+  move(settings.value("position").toPoint());
+  if (settings.contains("size"))
+    resize(settings.value("size").toSize());
+  else
+    resize(400, 600);
  
   // load project
   QStringList path = settings.value("path").toStringList();
