@@ -217,6 +217,11 @@ void MainWindow::update()
     getEpsFiles();
     getMpFiles();
     change(activeEpsFile);
+
+    int index = epsFiles->findText(activeEpsFile);
+    qDebug() << index;
+    if (index != -1)
+      epsFiles->setCurrentIndex(index);
   }
 }
 
